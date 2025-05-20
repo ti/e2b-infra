@@ -67,18 +67,16 @@ build-and-upload:
 	@cp -r ../shared .shared/
 	@cp -r ../db .db/
 	@docker buildx install # sets up the buildx as default docker builder (otherwise the command below won't work)
+    @if [ -n "$(GCP_PROJECT_ID)" ] && [ -n "$(GCP_REGION)" ]; then \
+        @docker build --platform linux/amd64 --tag "$(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(IMAGE)" --push --build-arg COMMIT_SHA="$(COMMIT_SHA)" --build-arg EXPECTED_MIGRATION_TIMESTAMP="$(EXPECTED_MIGRATION_TIMESTAMP)" .
+    elif [ -n "$(AWS_ACCOUNT_ID)" ]; then \
+        aws ecr get-login-password --region $(AWS_REGION) | sudo docker login --username AWS --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com; \
+        @docker build --platform linux/amd64 --tag "$(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(IMAGE):latest" --push --build-arg COMMIT_SHA="$(COMMIT_SHA)" --build-arg EXPECTED_MIGRATION_TIMESTAMP="$(EXPECTED_MIGRATION_TIMESTAMP)" .
+    else \
+        echo "Either GCP_PROJECT_ID and GCP_REGION or AWS_ACCOUNT_ID must be set"; \
+        exit 1; \
+    fi
 	@docker build --platform linux/amd64 --tag "$(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(IMAGE)" --push --build-arg COMMIT_SHA="$(COMMIT_SHA)" --build-arg EXPECTED_MIGRATION_TIMESTAMP="$(EXPECTED_MIGRATION_TIMESTAMP)" .
-	@rm -rf .shared/
-	@rm -rf .db/
-
-build-docker:
-	$(eval COMMIT_SHA := $(shell git rev-parse --short HEAD))
-	$(eval EXPECTED_MIGRATION_TIMESTAMP := $(expectedMigration))
-	@rm -rf .shared/ .db/
-	@cp -r ../shared .shared/
-	@cp -r ../db .db/
-	@docker buildx install # sets up the buildx as default docker builder (otherwise the command below won't work)
-	@docker build --platform linux/amd64 --tag "$(IMAGE)" --load --build-arg COMMIT_SHA="$(COMMIT_SHA)" --build-arg EXPECTED_MIGRATION_TIMESTAMP="$(EXPECTED_MIGRATION_TIMESTAMP)" .
 	@rm -rf .shared/
 	@rm -rf .db/
 
